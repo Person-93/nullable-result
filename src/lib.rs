@@ -7,6 +7,52 @@ pub enum NullableResult<T, E> {
     None,
 }
 
+impl<T, E> NullableResult<T, E> {
+    #[inline]
+    pub fn option(self) -> Option<T> {
+        match self {
+            NullableResult::Ok(item) => Some(item),
+            NullableResult::Err(_) | NullableResult::None => None,
+        }
+    }
+
+    #[inline]
+    pub fn result(self, item: T) -> Result<T, E> {
+        match self {
+            NullableResult::Ok(item) => Ok(item),
+            NullableResult::Err(err) => Err(err),
+            NullableResult::None => Ok(item),
+        }
+    }
+
+    #[inline]
+    pub fn result_with<F: FnOnce() -> T>(self, f: F) -> Result<T, E> {
+        match self {
+            NullableResult::Ok(item) => Ok(item),
+            NullableResult::Err(err) => Err(err),
+            NullableResult::None => Ok(f()),
+        }
+    }
+
+    #[inline]
+    pub fn map<U, F: FnOnce(T) -> U>(self, f: F) -> NullableResult<U, E> {
+        match self {
+            NullableResult::Ok(item) => NullableResult::Ok(f(item)),
+            NullableResult::Err(err) => NullableResult::Err(err),
+            NullableResult::None => NullableResult::None,
+        }
+    }
+
+    #[inline]
+    pub fn map_err<U, F: FnOnce(E) -> U>(self, f: F) -> NullableResult<T, U> {
+        match self {
+            NullableResult::Ok(item) => NullableResult::Ok(item),
+            NullableResult::Err(err) => NullableResult::Err(f(err)),
+            NullableResult::None => NullableResult::None,
+        }
+    }
+}
+
 impl<T, E> From<Result<Option<T>, E>> for NullableResult<T, E> {
     #[inline]
     fn from(res: Result<Option<T>, E>) -> Self {
