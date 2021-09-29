@@ -3,6 +3,7 @@
 use core::fmt::Debug;
 
 #[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Hash)]
+#[must_use]
 pub enum NullableResult<T, E> {
     Ok(T),
     Err(E),
