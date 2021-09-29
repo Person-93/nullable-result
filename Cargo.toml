@@ -1,0 +1,13 @@
+[package]
+name = "nullable-result"
+authors = ["person93 <person93.person93@gmail.com>"]
+version = "0.1.0-dev"
+edition = "2018"
+description = "A replacement for Option<Result<T, E>> or Result<Option<T>, E>"
+license = "MIT"
+
+[features]
+default = ["std"]
+std = []
+
+[dependencies]
