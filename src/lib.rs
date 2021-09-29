@@ -131,3 +131,19 @@ impl<T, E> From<NullableResult<T, E>> for Option<Result<T, E>> {
         }
     }
 }
+
+#[macro_export]
+macro_rules! extract {
+    ($nr:expr) => {{
+        let nr = $nr;
+        match nr {
+            nullable_result::NullableResult::Ok(item) => item,
+            nullable_result::NullableResult::Err(err) => {
+                return NullableResult::Err(err)
+            }
+            nullable_result::NullableResult::None => {
+                return NullableResult::None
+            }
+        }
+    }};
+}
