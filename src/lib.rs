@@ -1,5 +1,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
+use core::fmt::Debug;
+
 #[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Hash)]
 pub enum NullableResult<T, E> {
     Ok(T),
@@ -7,7 +9,39 @@ pub enum NullableResult<T, E> {
     None,
 }
 
+impl<T, E: Debug> NullableResult<T, E> {
+    #[inline]
+    pub fn unwrap(self) -> T {
+        match self {
+            NullableResult::Ok(item) => item,
+            NullableResult::Err(err) => panic!(
+                "tried to unwrap a nullable result containing Err: {:?}",
+                err
+            ),
+            NullableResult::None => {
+                panic!("tried to unwrap a nullable result containing None")
+            }
+        }
+    }
+}
+
 impl<T, E> NullableResult<T, E> {
+    #[inline]
+    pub fn unwrap_or(self, item: T) -> T {
+        match self {
+            NullableResult::Ok(item) => item,
+            _ => item,
+        }
+    }
+
+    #[inline]
+    pub fn unwrap_or_else<F: FnOnce() -> T>(self, f: F) -> T {
+        match self {
+            NullableResult::Ok(item) => item,
+            _ => f(),
+        }
+    }
+
     #[inline]
     pub fn option(self) -> Option<T> {
         match self {
