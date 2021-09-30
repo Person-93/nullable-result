@@ -1,3 +1,66 @@
+//! A replacement for `Option<Result<T, E>>` or `Result<Option<T>, E>`.
+//!
+//! Sometimes, no value returned from an operation is not an error. It's a special
+//! case that needs to be handled, but it's separate from error handling. Wrapping
+//! an `Option` in a `Result` or vice versa can get very confusing very fast. Instead,
+//! use a `NullableResult`.
+//!
+//! This is how it's defined:
+//! ```rust
+//! pub enum NullableResult<T, E> {
+//!     Ok(T),
+//!     Err(E),
+//!     None,
+//! }
+//! ```
+//!
+//! ## Convert to and From std Types
+//!
+//! It defines the `From` trait for `Option<Result<T, E>>` and for
+//! `Result<Option<T>, E>` in both directions, so you can easily convert between the
+//! standard library types and back.
+//! ```rust
+//! use nullable_result::NullableResult;
+//!
+//! let opt_res: Option<Result<usize, isize>> = Some(Ok(4));
+//! let nr: NullableResult<usize, isize> = NullableResult::from(opt_res);
+//! let opt_res: Option<Result<_,_>> = nr.into();
+//! ```
+//! Normally, you don't need to annotate the types so much, but in this example,
+//! there's not enough info for the compiler to infer the types.
+//!
+//! ## Unwrapping Conversions
+//! There are also methods for unwrapping conversions. (i.e. convert to `Option<T>` or
+//! `Result<T, E>`. When converting a a `Result`, you need to provide an error value
+//! in case the `NullableResult` contains `None`.
+//! ```rust
+//! use nullable_result::NullableResult;
+//! let nr = NullableResult::<usize, isize>::Ok(5);
+//! let opt: Option<usize> = nr.clone().option();
+//! let res: Result<usize, isize> = nr.result(-5);
+//! ```
+//!
+//! ## Extract the Value
+//! The crate comes with a convenience macro `extract` that works like the `?` operator
+//! and cna be used in functions that return a `NullableResult` as long as the error
+//! type is the same. It takes a `NullableResult`, if it contains an `Ok` value, the
+//! value is extracted and returned, if it contains an `Err` or `None`, the function
+//! returns early with the `Err` or `None` wrapped in a new `NullableResult`.
+//! ```rust
+//! use nullable_result::{NullableResult, extract};
+//!
+//! fn do_a_thing() -> NullableResult<usize, isize> {
+//!     let res = some_other_func();
+//!     let number = extract!(res); // <---- this will cause the function to return early
+//!     NullableResult::Ok(number as usize + 5)
+//! }
+//!
+//! // note that the two functions have different types for their Ok values
+//! fn some_other_func() -> NullableResult<i8, isize> {
+//!     NullableResult::None
+//! }
+//! ```
+
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use core::fmt::Debug;
