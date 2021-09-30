@@ -74,6 +74,7 @@ pub enum NullableResult<T, E> {
 }
 
 impl<T, E: Debug> NullableResult<T, E> {
+    /// Panics if it's not `Ok`, otherwise returns the contained value.
     #[inline]
     pub fn unwrap(self) -> T {
         match self {
@@ -90,6 +91,7 @@ impl<T, E: Debug> NullableResult<T, E> {
 }
 
 impl<T, E> NullableResult<T, E> {
+    /// Returns the contained value if it's `Ok`, returns `item` otherwise.
     #[inline]
     pub fn unwrap_or(self, item: T) -> T {
         match self {
@@ -98,6 +100,8 @@ impl<T, E> NullableResult<T, E> {
         }
     }
 
+    /// Returns the contained value if it's `Ok`, otherwise, it calls `f` and fowards
+    /// its return value.
     #[inline]
     pub fn unwrap_or_else<F: FnOnce() -> T>(self, f: F) -> T {
         match self {
@@ -106,6 +110,8 @@ impl<T, E> NullableResult<T, E> {
         }
     }
 
+    /// Returns an `Option<T>` consuming `self`, returns `None` if the `NullableResult`
+    /// contains `Err`.
     #[inline]
     pub fn option(self) -> Option<T> {
         match self {
@@ -114,6 +120,8 @@ impl<T, E> NullableResult<T, E> {
         }
     }
 
+    /// Returns a `Result<T, E>`, returns the provided `err` if the `NullableResult`
+    /// contains `None`
     #[inline]
     pub fn result(self, err: E) -> Result<T, E> {
         match self {
@@ -123,6 +131,8 @@ impl<T, E> NullableResult<T, E> {
         }
     }
 
+    /// Returns a `Result<T, E>`, if the `NullableResult` contains `Ok` or `Err`, the
+    /// value is returned, otherwise, returns the result of `f`.
     #[inline]
     pub fn result_with<F: FnOnce() -> E>(self, f: F) -> Result<T, E> {
         match self {
@@ -132,6 +142,7 @@ impl<T, E> NullableResult<T, E> {
         }
     }
 
+    /// Maps to a `NullableResult` with a different ok type.
     #[inline]
     pub fn map<U, F: FnOnce(T) -> U>(self, f: F) -> NullableResult<U, E> {
         match self {
@@ -141,6 +152,7 @@ impl<T, E> NullableResult<T, E> {
         }
     }
 
+    /// Maps to a `NullableResult` with a different err type.
     #[inline]
     pub fn map_err<U, F: FnOnce(E) -> U>(self, f: F) -> NullableResult<T, U> {
         match self {
