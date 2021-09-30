@@ -185,6 +185,16 @@ impl<T, E> From<NullableResult<T, E>> for Result<Option<T>, E> {
     }
 }
 
+impl<T, E> From<Result<T, E>> for NullableResult<T, E> {
+    #[inline]
+    fn from(res: Result<T, E>) -> Self {
+        match res {
+            Ok(item) => NullableResult::Ok(item),
+            Err(err) => NullableResult::Err(err),
+        }
+    }
+}
+
 impl<T, E> From<Option<Result<T, E>>> for NullableResult<T, E> {
     #[inline]
     fn from(opt: Option<Result<T, E>>) -> Self {
@@ -203,6 +213,16 @@ impl<T, E> From<NullableResult<T, E>> for Option<Result<T, E>> {
             NullableResult::Ok(item) => Some(Ok(item)),
             NullableResult::Err(err) => Some(Err(err)),
             NullableResult::None => None,
+        }
+    }
+}
+
+impl<T, E> From<Option<T>> for NullableResult<T, E> {
+    #[inline]
+    fn from(opt: Option<T>) -> Self {
+        match opt {
+            Some(item) => NullableResult::Ok(item),
+            None => NullableResult::None,
         }
     }
 }
