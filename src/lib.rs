@@ -73,6 +73,12 @@ pub enum NullableResult<T, E> {
     None,
 }
 
+impl<T, E> Default for NullableResult<T, E> {
+    fn default() -> Self {
+        NullableResult::None
+    }
+}
+
 impl<T, E: Debug> NullableResult<T, E> {
     /// Panics if it's not `Ok`, otherwise returns the contained value.
     #[inline]
