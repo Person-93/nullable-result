@@ -52,20 +52,20 @@ impl<T, E> NullableResult<T, E> {
     }
 
     #[inline]
-    pub fn result(self, item: T) -> Result<T, E> {
+    pub fn result(self, err: E) -> Result<T, E> {
         match self {
             NullableResult::Ok(item) => Ok(item),
             NullableResult::Err(err) => Err(err),
-            NullableResult::None => Ok(item),
+            NullableResult::None => Err(err),
         }
     }
 
     #[inline]
-    pub fn result_with<F: FnOnce() -> T>(self, f: F) -> Result<T, E> {
+    pub fn result_with<F: FnOnce() -> E>(self, f: F) -> Result<T, E> {
         match self {
             NullableResult::Ok(item) => Ok(item),
             NullableResult::Err(err) => Err(err),
-            NullableResult::None => Ok(f()),
+            NullableResult::None => Err(f()),
         }
     }
 
