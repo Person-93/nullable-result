@@ -5,6 +5,8 @@ version = "0.1.1-dev"
 edition = "2018"
 description = "A replacement for Option<Result<T, E>> or Result<Option<T>, E>"
 license = "MIT"
+repository = "https://github.com/Person-93/nullable-result"
+documentation = "https://docs.rs/nullable-result/"
 
 [features]
 default = ["std"]
