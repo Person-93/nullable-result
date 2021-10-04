@@ -7,8 +7,8 @@ mod result_and_back {
 
     #[test]
     fn ok() {
-        let res = Ok(Some(1));
-        let nr: NullableResult<_, u32> = NullableResult::from(res);
+        let res: Result<Option<_>, u32> = Ok(Some(1));
+        let nr: NullableResult<i32, u32> = NullableResult::from(res);
         assert!(matches!(nr, NullableResult::Ok(_)));
         let res = Result::from(nr);
         assert_eq!(res.unwrap().unwrap(), 1);
@@ -25,7 +25,7 @@ mod result_and_back {
 
     #[test]
     fn err() {
-        let res = Err(1);
+        let res: Result<Option<_>, _> = Err(1);
         let nr: NullableResult<(), _> = NullableResult::from(res);
         assert!(matches!(nr, NullableResult::Err(_)));
         let res = Result::from(nr);
@@ -39,7 +39,7 @@ mod option_and_back {
     #[test]
     fn ok() {
         let opt = Some(Ok(1));
-        let nr: NullableResult<_, ()> = NullableResult::from(opt);
+        let nr: NullableResult<i32, ()> = NullableResult::from(opt);
         assert!(matches!(nr, NullableResult::Ok(_)));
         let opt: Option<Result<_, _>> = Option::from(nr);
         assert_eq!(opt.unwrap().unwrap(), 1);
