@@ -253,11 +253,12 @@ pub trait IterExt<T, E>: Iterator<Item = NullableResult<T, E>>
 where
     Self: Sized,
 {
-    fn filter_nulls(
-        self,
-    ) -> FilterMap<Self, fn(NullableResult<T, E>) -> Option<Result<T, E>>> {
+    fn filter_nulls(self) -> FilterNulls<Self, T, E> {
         self.filter_map(Option::from)
     }
 }
 
 impl<I, T, E> IterExt<T, E> for I where I: Iterator<Item = NullableResult<T, E>> {}
+
+type FilterNulls<I, T, E> =
+    FilterMap<I, fn(NullableResult<T, E>) -> Option<Result<T, E>>>;
