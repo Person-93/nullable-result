@@ -236,7 +236,7 @@ impl<T, E> From<Option<T>> for NullableResult<T, E> {
 #[macro_export]
 macro_rules! extract {
     ($nr:expr) => {{
-        let nr = $nr;
+        let nr = NullableResult::from($nr);
         match nr {
             nullable_result::NullableResult::Ok(item) => item,
             nullable_result::NullableResult::Err(err) => {
