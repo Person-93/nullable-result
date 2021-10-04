@@ -63,7 +63,7 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use core::fmt::Debug;
+use core::{fmt::Debug, iter::FilterMap};
 
 #[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Hash)]
 #[must_use]
@@ -248,3 +248,16 @@ macro_rules! extract {
         }
     }};
 }
+
+pub trait IterExt<T, E>: Iterator<Item = NullableResult<T, E>>
+where
+    Self: Sized,
+{
+    fn filter_nulls(
+        self,
+    ) -> FilterMap<Self, fn(NullableResult<T, E>) -> Option<Result<T, E>>> {
+        self.filter_map(Option::from)
+    }
+}
+
+impl<I, T, E> IterExt<T, E> for I where I: Iterator<Item = NullableResult<T, E>> {}
