@@ -240,10 +240,10 @@ macro_rules! extract {
         match nr {
             nullable_result::NullableResult::Ok(item) => item,
             nullable_result::NullableResult::Err(err) => {
-                return NullableResult::Err(err)
+                return NullableResult::Err(err);
             }
             nullable_result::NullableResult::None => {
-                return NullableResult::None
+                return NullableResult::None;
             }
         }
     }};
