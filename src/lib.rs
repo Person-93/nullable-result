@@ -253,6 +253,7 @@ pub trait IterExt<T, E>: Iterator<Item = NullableResult<T, E>>
 where
     Self: Sized,
 {
+    #[inline]
     fn filter_nulls(self) -> FilterNulls<Self, T, E> {
         self.filter_map(Option::from)
     }
