@@ -238,11 +238,11 @@ macro_rules! extract {
     ($nr:expr) => {{
         let nr = NullableResult::from($nr);
         match nr {
-            nullable_result::NullableResult::Ok(item) => item,
-            nullable_result::NullableResult::Err(err) => {
+            $crate::NullableResult::Ok(item) => item,
+            $crate::NullableResult::Err(err) => {
                 return NullableResult::Err(err);
             }
-            nullable_result::NullableResult::None => {
+            $crate::NullableResult::None => {
                 return NullableResult::None;
             }
         }
