@@ -63,7 +63,10 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use core::{fmt::Debug, iter::FilterMap};
+use core::{
+    fmt::Debug,
+    iter::{FilterMap, FusedIterator},
+};
 
 #[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Hash)]
 #[must_use]
@@ -106,7 +109,7 @@ impl<T, E> NullableResult<T, E> {
         }
     }
 
-    /// Returns the contained value if it's `Ok`, otherwise, it calls `f` and fowards
+    /// Returns the contained value if it's `Ok`, otherwise, it calls `f` and forwards
     /// its return value.
     #[inline]
     pub fn unwrap_or_else<F: FnOnce() -> T>(self, f: F) -> T {
@@ -249,6 +252,50 @@ macro_rules! extract {
     }};
 }
 
+pub trait GeneralIterExt<T, E> {
+    fn try_find<P>(self, pred: P) -> NullableResult<T, E>
+    where
+        P: FnMut(&T) -> Result<bool, E>;
+
+    fn try_find_map<F, U>(self, f: F) -> NullableResult<U, E>
+    where
+        F: FnMut(T) -> NullableResult<U, E>;
+}
+
+impl<T, E, I: Iterator<Item = T>> GeneralIterExt<T, E> for I {
+    #[inline]
+    fn try_find<P>(mut self, mut pred: P) -> NullableResult<T, E>
+    where
+        P: FnMut(&T) -> Result<bool, E>,
+    {
+        use NullableResult::*;
+        while let Some(item) = self.next() {
+            return match pred(&item) {
+                Result::Err(err) => Err(err),
+                Result::Ok(true) => Ok(item),
+                Result::Ok(false) => continue,
+            };
+        }
+        None
+    }
+
+    #[inline]
+    fn try_find_map<F, U>(mut self, mut f: F) -> NullableResult<U, E>
+    where
+        F: FnMut(T) -> NullableResult<U, E>,
+    {
+        use NullableResult::*;
+        while let Some(item) = self.next() {
+            return match f(item) {
+                Ok(item) => Ok(item),
+                Err(err) => Err(err),
+                None => continue,
+            };
+        }
+        None
+    }
+}
+
 pub trait IterExt<T, E>: Iterator<Item = NullableResult<T, E>>
 where
     Self: Sized,
@@ -257,9 +304,119 @@ where
     fn filter_nulls(self) -> FilterNulls<Self, T, E> {
         self.filter_map(Option::from)
     }
+
+    #[inline]
+    fn extract_and_find<P>(self, mut pred: P) -> NullableResult<T, E>
+    where
+        P: FnMut(&T) -> Result<bool, E>,
+    {
+        use NullableResult::*;
+        self.try_find_map(|item| {
+            let item = extract!(item);
+            match pred(&item) {
+                Result::Err(err) => Err(err),
+                Result::Ok(true) => Ok(item),
+                Result::Ok(false) => None,
+            }
+        })
+    }
+
+    #[inline]
+    fn extract_and_find_map<F, U>(self, mut f: F) -> NullableResult<U, E>
+    where
+        F: FnMut(T) -> NullableResult<U, E>,
+    {
+        self.try_find_map(|item| f(extract!(item)))
+    }
+
+    #[inline]
+    fn try_filter<P>(self, pred: P) -> TryFilter<Self, P, T, E>
+    where
+        P: FnMut(&T) -> bool,
+    {
+        TryFilter { inner: self, pred }
+    }
+
+    #[inline]
+    fn try_filter_map<F, U>(self, f: F) -> TryFilterMap<Self, F, T, U, E>
+    where
+        F: FnMut(T) -> Option<NullableResult<U, E>>,
+    {
+        TryFilterMap { inner: self, f }
+    }
 }
 
 impl<I, T, E> IterExt<T, E> for I where I: Iterator<Item = NullableResult<T, E>> {}
 
 type FilterNulls<I, T, E> =
     FilterMap<I, fn(NullableResult<T, E>) -> Option<Result<T, E>>>;
+
+pub struct TryFilter<I, P, T, E>
+where
+    I: Iterator<Item = NullableResult<T, E>>,
+    P: FnMut(&T) -> bool,
+{
+    inner: I,
+    pred: P,
+}
+
+impl<I, P, T, E> Iterator for TryFilter<I, P, T, E>
+where
+    I: Iterator<Item = NullableResult<T, E>>,
+    P: FnMut(&T) -> bool,
+{
+    type Item = NullableResult<T, E>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self.inner.next() {
+            None => None,
+            Some(NullableResult::None) => Some(NullableResult::None),
+            Some(NullableResult::Err(err)) => Some(NullableResult::Err(err)),
+            Some(NullableResult::Ok(item)) if (self.pred)(&item) => {
+                Some(NullableResult::Ok(item))
+            }
+            Some(NullableResult::Ok(_)) => self.next(),
+        }
+    }
+}
+
+impl<I, P, T, E> FusedIterator for TryFilter<I, P, T, E>
+where
+    I: FusedIterator<Item = NullableResult<T, E>>,
+    P: FnMut(&T) -> bool,
+{
+}
+
+pub struct TryFilterMap<I, F, T, U, E>
+where
+    I: Iterator<Item = NullableResult<T, E>>,
+    F: FnMut(T) -> Option<NullableResult<U, E>>,
+{
+    inner: I,
+    f: F,
+}
+
+impl<I, F, T, U, E> Iterator for TryFilterMap<I, F, T, U, E>
+where
+    I: Iterator<Item = NullableResult<T, E>>,
+    F: FnMut(T) -> Option<NullableResult<U, E>>,
+{
+    type Item = NullableResult<U, E>;
+
+    #[inline]
+    fn next(&mut self) -> Option<Self::Item> {
+        match self.inner.next() {
+            None => None,
+            Some(NullableResult::None) => Some(NullableResult::None),
+            Some(NullableResult::Err(err)) => Some(NullableResult::Err(err)),
+            Some(NullableResult::Ok(item)) => (self.f)(item),
+        }
+    }
+}
+
+impl<I, F, T, U, E> FusedIterator for TryFilterMap<I, F, T, U, E>
+where
+    I: FusedIterator<Item = NullableResult<T, E>>,
+    F: FnMut(T) -> Option<NullableResult<U, E>>,
+{
+}
