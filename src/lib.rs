@@ -243,7 +243,7 @@ macro_rules! extract {
         match nr {
             $crate::NullableResult::Ok(item) => item,
             $crate::NullableResult::Err(err) => {
-                return NullableResult::Err(err);
+                return NullableResult::Err(err.into());
             }
             $crate::NullableResult::None => {
                 return NullableResult::None;
