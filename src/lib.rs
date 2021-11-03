@@ -65,7 +65,7 @@
 
 use core::{
     fmt::Debug,
-    iter::{FilterMap, FusedIterator},
+    iter::{FilterMap, FromIterator, FusedIterator},
 };
 
 #[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Hash)]
@@ -264,6 +264,22 @@ impl<T, E> From<Result<T, Option<E>>> for NullableResult<T, E> {
             Err(Some(err)) => NullableResult::Err(err),
             Err(None) => NullableResult::None,
         }
+    }
+}
+
+impl<T, E, C> FromIterator<NullableResult<T, E>> for NullableResult<C, E>
+where
+    C: FromIterator<T>,
+{
+    fn from_iter<I: IntoIterator<Item = NullableResult<T, E>>>(
+        iter: I,
+    ) -> Self {
+        let result = iter
+            .into_iter()
+            .map(NullableResult::result_optional_err)
+            .collect::<Result<_, _>>();
+
+        NullableResult::from(result)
     }
 }
 
