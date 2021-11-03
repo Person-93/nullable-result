@@ -129,6 +129,18 @@ impl<T, E> NullableResult<T, E> {
         }
     }
 
+    /// Return an `Option<Result<T, E>>` consuming `self`.
+    #[inline]
+    pub fn optional_result(self) -> Option<Result<T, E>> {
+        self.into()
+    }
+
+    /// Return a `Result<Option<T>, E>` consuming `self`.
+    #[inline]
+    pub fn resulting_option(self) -> Result<Option<T>, E> {
+        self.into()
+    }
+
     /// Returns a `Result<T, E>`, returns the provided `err` if the `NullableResult`
     /// contains `None`
     #[inline]
@@ -168,6 +180,15 @@ impl<T, E> NullableResult<T, E> {
             NullableResult::Ok(item) => NullableResult::Ok(item),
             NullableResult::Err(err) => NullableResult::Err(f(err)),
             NullableResult::None => NullableResult::None,
+        }
+    }
+
+    #[inline]
+    pub fn result_optional_err(self) -> Result<T, Option<E>> {
+        match self {
+            NullableResult::Ok(item) => Ok(item),
+            NullableResult::Err(err) => Err(Some(err)),
+            NullableResult::None => Err(None),
         }
     }
 }
@@ -232,6 +253,16 @@ impl<T, E> From<Option<T>> for NullableResult<T, E> {
         match opt {
             Some(item) => NullableResult::Ok(item),
             None => NullableResult::None,
+        }
+    }
+}
+
+impl<T, E> From<Result<T, Option<E>>> for NullableResult<T, E> {
+    fn from(res: Result<T, Option<E>>) -> Self {
+        match res {
+            Ok(item) => NullableResult::Ok(item),
+            Err(Some(err)) => NullableResult::Err(err),
+            Err(None) => NullableResult::None,
         }
     }
 }
