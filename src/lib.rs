@@ -314,12 +314,12 @@ pub trait GeneralIterExt<T, E> {
 
 impl<T, E, I: Iterator<Item = T>> GeneralIterExt<T, E> for I {
     #[inline]
-    fn try_find<P>(mut self, mut pred: P) -> NullableResult<T, E>
+    fn try_find<P>(self, mut pred: P) -> NullableResult<T, E>
     where
         P: FnMut(&T) -> Result<bool, E>,
     {
         use NullableResult::*;
-        while let Some(item) = self.next() {
+        for item in self {
             return match pred(&item) {
                 Result::Err(err) => Err(err),
                 Result::Ok(true) => Ok(item),
@@ -330,12 +330,12 @@ impl<T, E, I: Iterator<Item = T>> GeneralIterExt<T, E> for I {
     }
 
     #[inline]
-    fn try_find_map<F, U>(mut self, mut f: F) -> NullableResult<U, E>
+    fn try_find_map<F, U>(self, mut f: F) -> NullableResult<U, E>
     where
         F: FnMut(T) -> NullableResult<U, E>,
     {
         use NullableResult::*;
-        while let Some(item) = self.next() {
+        for item in self {
             return match f(item) {
                 Ok(item) => Ok(item),
                 Err(err) => Err(err),
