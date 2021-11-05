@@ -285,8 +285,11 @@ where
 
 #[macro_export]
 macro_rules! extract {
-    ($nr:expr) => {{
-        let nr = NullableResult::from($nr);
+    ($nr:expr) => {
+        extract!($nr, _)
+    };
+    ($nr:expr, $err:ty) => {{
+        let nr = $crate::NullableResult::<_, $err>::from($nr);
         match nr {
             $crate::NullableResult::Ok(item) => item,
             $crate::NullableResult::Err(err) => {
