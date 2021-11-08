@@ -67,6 +67,7 @@ use self::NullableResult::*;
 use core::{
     fmt::Debug,
     iter::{FilterMap, FromIterator, FusedIterator},
+    ops::Deref,
 };
 
 #[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Hash)]
@@ -100,7 +101,62 @@ impl<T, E: Debug> NullableResult<T, E> {
     }
 }
 
+impl<T: Default, E> NullableResult<T, E> {
+    #[inline]
+    pub fn unwrap_or_default(self) -> T {
+        match self {
+            Ok(item) => item,
+            _ => T::default(),
+        }
+    }
+}
+
+impl<T: Copy, E> NullableResult<&'_ T, E> {
+    #[inline]
+    pub fn copied(self) -> NullableResult<T, E> {
+        self.map(|&item| item)
+    }
+}
+
+impl<T: Copy, E> NullableResult<&'_ mut T, E> {
+    #[inline]
+    pub fn copied(self) -> NullableResult<T, E> {
+        self.map(|&mut item| item)
+    }
+}
+
+impl<T: Clone, E> NullableResult<&'_ T, E> {
+    pub fn cloned(self) -> NullableResult<T, E> {
+        self.map(|item| item.clone())
+    }
+}
+
+impl<T: Clone, E> NullableResult<&'_ mut T, E> {
+    pub fn cloned(self) -> NullableResult<T, E> {
+        self.map(|item| item.clone())
+    }
+}
+
+impl<T: Deref, E> NullableResult<T, E> {
+    #[inline]
+    pub fn as_deref(&self) -> NullableResult<&T::Target, &E> {
+        match self {
+            Ok(item) => Ok(item.deref()),
+            Err(err) => Err(err),
+            None => None,
+        }
+    }
+}
+
 impl<T, E> NullableResult<T, E> {
+    #[inline]
+    pub fn expect(self, msg: &str) -> T {
+        match self {
+            Ok(item) => item,
+            _ => panic!("{}", msg),
+        }
+    }
+
     /// Returns the contained value if it's `Ok`, returns `item` otherwise.
     #[inline]
     pub fn unwrap_or(self, item: T) -> T {
@@ -190,6 +246,58 @@ impl<T, E> NullableResult<T, E> {
             Ok(item) => Result::Ok(item),
             Err(err) => Result::Err(Some(err)),
             None => Result::Err(Option::None),
+        }
+    }
+
+    #[inline]
+    pub fn as_ref(&self) -> NullableResult<&T, &E> {
+        use NullableResult::*;
+        match self {
+            Ok(item) => Ok(item),
+            Err(err) => Err(err),
+            None => None,
+        }
+    }
+
+    #[inline]
+    pub fn as_mut(&mut self) -> NullableResult<&mut T, &mut E> {
+        use NullableResult::*;
+        match self {
+            Ok(item) => Ok(item),
+            Err(err) => Err(err),
+            None => None,
+        }
+    }
+
+    #[inline]
+    pub fn and<U>(self, res: NullableResult<U, E>) -> NullableResult<U, E> {
+        match self {
+            Ok(_) => res,
+            Err(err) => Err(err),
+            None => None,
+        }
+    }
+
+    #[inline]
+    pub fn and_then<U, F>(self, op: F) -> NullableResult<U, E>
+    where
+        F: FnOnce(T) -> NullableResult<U, E>,
+    {
+        match self {
+            Ok(item) => op(item),
+            Err(err) => Err(err),
+            None => None,
+        }
+    }
+}
+
+impl<T, E> NullableResult<NullableResult<T, E>, E> {
+    #[inline]
+    pub fn flatten(self) -> NullableResult<T, E> {
+        match self {
+            Ok(Ok(item)) => Ok(item),
+            Ok(Err(err)) | Err(err) => Err(err),
+            Ok(None) | None => None,
         }
     }
 }
