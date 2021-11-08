@@ -63,6 +63,7 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+use self::NullableResult::*;
 use core::{
     fmt::Debug,
     iter::{FilterMap, FromIterator, FusedIterator},
@@ -78,7 +79,7 @@ pub enum NullableResult<T, E> {
 
 impl<T, E> Default for NullableResult<T, E> {
     fn default() -> Self {
-        NullableResult::None
+        None
     }
 }
 
@@ -104,7 +105,7 @@ impl<T, E> NullableResult<T, E> {
     #[inline]
     pub fn unwrap_or(self, item: T) -> T {
         match self {
-            NullableResult::Ok(item) => item,
+            Ok(item) => item,
             _ => item,
         }
     }
@@ -114,7 +115,7 @@ impl<T, E> NullableResult<T, E> {
     #[inline]
     pub fn unwrap_or_else<F: FnOnce() -> T>(self, f: F) -> T {
         match self {
-            NullableResult::Ok(item) => item,
+            Ok(item) => item,
             _ => f(),
         }
     }
@@ -124,8 +125,8 @@ impl<T, E> NullableResult<T, E> {
     #[inline]
     pub fn option(self) -> Option<T> {
         match self {
-            NullableResult::Ok(item) => Some(item),
-            NullableResult::Err(_) | NullableResult::None => None,
+            Ok(item) => Some(item),
+            Err(_) | None => Option::None,
         }
     }
 
@@ -146,9 +147,9 @@ impl<T, E> NullableResult<T, E> {
     #[inline]
     pub fn result(self, err: E) -> Result<T, E> {
         match self {
-            NullableResult::Ok(item) => Ok(item),
-            NullableResult::Err(err) => Err(err),
-            NullableResult::None => Err(err),
+            Ok(item) => Result::Ok(item),
+            Err(err) => Result::Err(err),
+            None => Result::Err(err),
         }
     }
 
@@ -157,9 +158,9 @@ impl<T, E> NullableResult<T, E> {
     #[inline]
     pub fn result_with<F: FnOnce() -> E>(self, f: F) -> Result<T, E> {
         match self {
-            NullableResult::Ok(item) => Ok(item),
-            NullableResult::Err(err) => Err(err),
-            NullableResult::None => Err(f()),
+            Ok(item) => Result::Ok(item),
+            Err(err) => Result::Err(err),
+            None => Result::Err(f()),
         }
     }
 
@@ -167,9 +168,9 @@ impl<T, E> NullableResult<T, E> {
     #[inline]
     pub fn map<U, F: FnOnce(T) -> U>(self, f: F) -> NullableResult<U, E> {
         match self {
-            NullableResult::Ok(item) => NullableResult::Ok(f(item)),
-            NullableResult::Err(err) => NullableResult::Err(err),
-            NullableResult::None => NullableResult::None,
+            Ok(item) => Ok(f(item)),
+            Err(err) => Err(err),
+            None => None,
         }
     }
 
@@ -177,18 +178,18 @@ impl<T, E> NullableResult<T, E> {
     #[inline]
     pub fn map_err<U, F: FnOnce(E) -> U>(self, f: F) -> NullableResult<T, U> {
         match self {
-            NullableResult::Ok(item) => NullableResult::Ok(item),
-            NullableResult::Err(err) => NullableResult::Err(f(err)),
-            NullableResult::None => NullableResult::None,
+            Ok(item) => NullableResult::Ok(item),
+            Err(err) => NullableResult::Err(f(err)),
+            None => NullableResult::None,
         }
     }
 
     #[inline]
     pub fn result_optional_err(self) -> Result<T, Option<E>> {
         match self {
-            NullableResult::Ok(item) => Ok(item),
-            NullableResult::Err(err) => Err(Some(err)),
-            NullableResult::None => Err(None),
+            Ok(item) => Result::Ok(item),
+            Err(err) => Result::Err(Some(err)),
+            None => Result::Err(Option::None),
         }
     }
 }
@@ -197,9 +198,9 @@ impl<T, E> From<Result<Option<T>, E>> for NullableResult<T, E> {
     #[inline]
     fn from(res: Result<Option<T>, E>) -> Self {
         match res {
-            Ok(Some(item)) => NullableResult::Ok(item),
-            Ok(None) => NullableResult::None,
-            Err(err) => NullableResult::Err(err),
+            Result::Ok(Option::Some(item)) => Ok(item),
+            Result::Ok(Option::None) => None,
+            Result::Err(err) => Err(err),
         }
     }
 }
@@ -208,9 +209,9 @@ impl<T, E> From<NullableResult<T, E>> for Result<Option<T>, E> {
     #[inline]
     fn from(nr: NullableResult<T, E>) -> Self {
         match nr {
-            NullableResult::Ok(item) => Ok(Some(item)),
-            NullableResult::Err(err) => Err(err),
-            NullableResult::None => Ok(None),
+            Ok(item) => Result::Ok(Some(item)),
+            Err(err) => Result::Err(err),
+            None => Result::Ok(Option::None),
         }
     }
 }
@@ -219,8 +220,8 @@ impl<T, E> From<Result<T, E>> for NullableResult<T, E> {
     #[inline]
     fn from(res: Result<T, E>) -> Self {
         match res {
-            Ok(item) => NullableResult::Ok(item),
-            Err(err) => NullableResult::Err(err),
+            Result::Ok(item) => Ok(item),
+            Result::Err(err) => Err(err),
         }
     }
 }
@@ -229,9 +230,9 @@ impl<T, E> From<Option<Result<T, E>>> for NullableResult<T, E> {
     #[inline]
     fn from(opt: Option<Result<T, E>>) -> Self {
         match opt {
-            None => NullableResult::None,
-            Some(Ok(item)) => NullableResult::Ok(item),
-            Some(Err(err)) => NullableResult::Err(err),
+            Option::None => None,
+            Some(Result::Ok(item)) => Ok(item),
+            Some(Result::Err(err)) => Err(err),
         }
     }
 }
@@ -240,9 +241,9 @@ impl<T, E> From<NullableResult<T, E>> for Option<Result<T, E>> {
     #[inline]
     fn from(nr: NullableResult<T, E>) -> Self {
         match nr {
-            NullableResult::Ok(item) => Some(Ok(item)),
-            NullableResult::Err(err) => Some(Err(err)),
-            NullableResult::None => None,
+            Ok(item) => Some(Result::Ok(item)),
+            Err(err) => Some(Result::Err(err)),
+            None => Option::None,
         }
     }
 }
@@ -251,8 +252,8 @@ impl<T, E> From<Option<T>> for NullableResult<T, E> {
     #[inline]
     fn from(opt: Option<T>) -> Self {
         match opt {
-            Some(item) => NullableResult::Ok(item),
-            None => NullableResult::None,
+            Some(item) => Ok(item),
+            Option::None => None,
         }
     }
 }
@@ -260,9 +261,9 @@ impl<T, E> From<Option<T>> for NullableResult<T, E> {
 impl<T, E> From<Result<T, Option<E>>> for NullableResult<T, E> {
     fn from(res: Result<T, Option<E>>) -> Self {
         match res {
-            Ok(item) => NullableResult::Ok(item),
-            Err(Some(err)) => NullableResult::Err(err),
-            Err(None) => NullableResult::None,
+            Result::Ok(item) => Ok(item),
+            Result::Err(Some(err)) => Err(err),
+            Result::Err(Option::None) => None,
         }
     }
 }
@@ -318,7 +319,6 @@ impl<T, E, I: Iterator<Item = T>> GeneralIterExt<T, E> for I {
     where
         P: FnMut(&T) -> Result<bool, E>,
     {
-        use NullableResult::*;
         for item in self {
             return match pred(&item) {
                 Result::Err(err) => Err(err),
@@ -334,7 +334,6 @@ impl<T, E, I: Iterator<Item = T>> GeneralIterExt<T, E> for I {
     where
         F: FnMut(T) -> NullableResult<U, E>,
     {
-        use NullableResult::*;
         for item in self {
             return match f(item) {
                 Ok(item) => Ok(item),
@@ -360,7 +359,6 @@ where
     where
         P: FnMut(&T) -> Result<bool, E>,
     {
-        use NullableResult::*;
         self.try_find_map(|item| {
             let item = extract!(item);
             match pred(&item) {
@@ -419,13 +417,11 @@ where
 
     fn next(&mut self) -> Option<Self::Item> {
         match self.inner.next() {
-            None => None,
-            Some(NullableResult::None) => Some(NullableResult::None),
-            Some(NullableResult::Err(err)) => Some(NullableResult::Err(err)),
-            Some(NullableResult::Ok(item)) if (self.pred)(&item) => {
-                Some(NullableResult::Ok(item))
-            }
-            Some(NullableResult::Ok(_)) => self.next(),
+            Option::None => Option::None,
+            Some(None) => Some(None),
+            Some(Err(err)) => Some(Err(err)),
+            Some(Ok(item)) if (self.pred)(&item) => Some(Ok(item)),
+            Some(Ok(_)) => self.next(),
         }
     }
 }
@@ -456,10 +452,10 @@ where
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         match self.inner.next() {
-            None => None,
-            Some(NullableResult::None) => Some(NullableResult::None),
-            Some(NullableResult::Err(err)) => Some(NullableResult::Err(err)),
-            Some(NullableResult::Ok(item)) => (self.f)(item),
+            Option::None => Option::None,
+            Some(None) => Some(None),
+            Some(Err(err)) => Some(Err(err)),
+            Some(Ok(item)) => (self.f)(item),
         }
     }
 }
