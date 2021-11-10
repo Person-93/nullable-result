@@ -426,21 +426,21 @@ macro_rules! extract {
     }};
 }
 
-pub trait GeneralIterExt<T, E> {
-    fn try_find<P>(self, pred: P) -> NullableResult<T, E>
+pub trait GeneralIterExt: Iterator {
+    fn try_find<E, P>(self, pred: P) -> NullableResult<Self::Item, E>
     where
-        P: FnMut(&T) -> Result<bool, E>;
+        P: FnMut(&Self::Item) -> Result<bool, E>;
 
-    fn try_find_map<F, U>(self, f: F) -> NullableResult<U, E>
+    fn try_find_map<T, E, F>(self, f: F) -> NullableResult<T, E>
     where
-        F: FnMut(T) -> NullableResult<U, E>;
+        F: FnMut(Self::Item) -> NullableResult<T, E>;
 }
 
-impl<T, E, I: Iterator<Item = T>> GeneralIterExt<T, E> for I {
+impl<I: Iterator> GeneralIterExt for I {
     #[inline]
-    fn try_find<P>(self, mut pred: P) -> NullableResult<T, E>
+    fn try_find<E, P>(self, mut pred: P) -> NullableResult<Self::Item, E>
     where
-        P: FnMut(&T) -> Result<bool, E>,
+        P: FnMut(&Self::Item) -> Result<bool, E>,
     {
         for item in self {
             return match pred(&item) {
@@ -453,9 +453,9 @@ impl<T, E, I: Iterator<Item = T>> GeneralIterExt<T, E> for I {
     }
 
     #[inline]
-    fn try_find_map<F, U>(self, mut f: F) -> NullableResult<U, E>
+    fn try_find_map<T, E, F>(self, mut f: F) -> NullableResult<T, E>
     where
-        F: FnMut(T) -> NullableResult<U, E>,
+        F: FnMut(Self::Item) -> NullableResult<T, E>,
     {
         for item in self {
             return match f(item) {
