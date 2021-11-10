@@ -1,69 +1,16 @@
-//! A replacement for `Option<Result<T, E>>` or `Result<Option<T>, E>`.
-//!
-//! Sometimes, no value returned from an operation is not an error. It's a special
-//! case that needs to be handled, but it's separate from error handling. Wrapping
-//! an `Option` in a `Result` or vice versa can get very confusing very fast. Instead,
-//! use a `NullableResult`.
-//!
-//! This is how it's defined:
-//! ```rust
-//! pub enum NullableResult<T, E> {
-//!     Ok(T),
-//!     Err(E),
-//!     None,
-//! }
-//! ```
-//!
-//! ## Convert to and From std Types
-//!
-//! It defines the `From` trait for `Option<Result<T, E>>` and for
-//! `Result<Option<T>, E>` in both directions, so you can easily convert between the
-//! standard library types and back.
-//! ```rust
-//! use nullable_result::NullableResult;
-//!
-//! let opt_res: Option<Result<usize, isize>> = Some(Ok(4));
-//! let nr: NullableResult<usize, isize> = NullableResult::from(opt_res);
-//! let opt_res: Option<Result<_,_>> = nr.into();
-//! ```
-//! Normally, you don't need to annotate the types so much, but in this example,
-//! there's not enough info for the compiler to infer the types.
-//!
-//! ## Unwrapping Conversions
-//! There are also methods for unwrapping conversions. (i.e. convert to `Option<T>` or
-//! `Result<T, E>`. When converting a a `Result`, you need to provide an error value
-//! in case the `NullableResult` contains `None`.
-//! ```rust
-//! use nullable_result::NullableResult;
-//! let nr = NullableResult::<usize, isize>::Ok(5);
-//! let opt: Option<usize> = nr.clone().option();
-//! let res: Result<usize, isize> = nr.result(-5);
-//! ```
-//!
-//! ## Extract the Value
-//! The crate comes with a convenience macro `extract` that works like the `?` operator
-//! and cna be used in functions that return a `NullableResult` as long as the error
-//! type is the same. It takes a `NullableResult`, if it contains an `Ok` value, the
-//! value is extracted and returned, if it contains an `Err` or `None`, the function
-//! returns early with the `Err` or `None` wrapped in a new `NullableResult`.
-//! ```rust
-//! use nullable_result::{NullableResult, extract};
-//!
-//! fn do_a_thing() -> NullableResult<usize, isize> {
-//!     let res = some_other_func();
-//!     let number = extract!(res); // <---- this will cause the function to return early
-//!     NullableResult::Ok(number as usize + 5)
-//! }
-//!
-//! // note that the two functions have different types for their Ok values
-//! fn some_other_func() -> NullableResult<i8, isize> {
-//!     NullableResult::None
-//! }
-//! ```
+//! ## Contents
+//! * [NullableResult] - the core of this crate
+//! * the [extract] macro - early return from functions `?`-style
+//! * [iterator extension](IterExt) - additional methods for iterators over [NullableResult]
+//! * [general iterator extension](GeneralIterExt) - additional methods for all iterators
+//! * [MaybeTryFrom] and [MaybeTryInto] - analogues of [TryFrom] and [TryInto]
 
+#![warn(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use self::NullableResult::*;
+#[cfg(doc)]
+use core::convert::TryInto;
 use core::{
     convert::TryFrom,
     fmt::Debug,
@@ -71,15 +18,75 @@ use core::{
     ops::Deref,
 };
 
+/// A replacement for `Option<Result<T, E>>` or `Result<Option<T>, E>`.
+///
+/// Sometimes, no value returned from an operation is not an error. It's a special
+/// case that needs to be handled, but it's separate from error handling. Wrapping
+/// an [`Option`] in a [`Result`] or vice versa can get very confusing very fast. Instead,
+/// use a [`NullableResult`].
+///
+/// This is how it's defined:
+/// ```rust
+/// pub enum NullableResult<T, E> {
+///     Ok(T),
+///     Err(E),
+///     None,
+/// }
+/// ```
+///
+/// ## Convert to and From std Types
+///
+/// It defines the [`From`] trait for `Option<Result<T, E>>` and for
+/// `Result<Option<T>, E>` in both directions, so you can easily convert between the
+/// standard library types and back.
+/// ```rust
+/// # use nullable_result::NullableResult;
+/// let opt_res: Option<Result<usize, isize>> = Some(Ok(4));
+/// let nr: NullableResult<usize, isize> = NullableResult::from(opt_res);
+/// let opt_res: Option<Result<_,_>> = nr.into();
+/// ```
+/// It also defines [`From`] for [`Option<T>] and for [`Result<T, E>`].
+/// ```rust
+/// # use nullable_result::NullableResult;
+/// let nr: NullableResult<_, isize> = NullableResult::from(Some(4));
+/// let result: Result<usize, isize> = Ok(4);
+/// let nr = NullableResult::from(result);
+/// ```
+///
+/// ## Unwrapping Conversions
+/// There are also methods for unwrapping conversions. (i.e. convert to `Option<T>` or
+/// `Result<T, E>`. When converting a a `Result`, you need to provide an error value
+/// in case the `NullableResult` contains `None`.
+/// ```rust
+/// # use nullable_result::NullableResult;
+/// let nr = NullableResult::<usize, isize>::Ok(5);
+/// let opt = nr.option();
+/// let res = nr.result(-5);
+/// ```
+///
+/// There are also a few convenience methods.
+/// ```rust
+/// # use nullable_result::NullableResult;
+/// let nr: NullableResult<usize, isize> = NullableResult::Ok(4);
+/// let _ : Option<Result<usize, isize>> = nr.optional_result();
+/// let _: Result<Option<usize>, isize> = nr.resulting_option();
+/// let _: Result<usize, Option<isize>> = nr.result_optional_err();
+/// let _: Result<usize, isize> = nr.result(-5); // need to provide default error value
+/// let _: Result<usize, isize> = nr.result_with(|| 5 - 10); //closure that returns a default error
+/// ```
 #[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Hash)]
 #[must_use]
 pub enum NullableResult<T, E> {
+    /// Contains the success value
     Ok(T),
+    /// Contains the error value
     Err(E),
+    /// No value
     None,
 }
 
 impl<T, E> Default for NullableResult<T, E> {
+    /// The default value is `None`
     fn default() -> Self {
         None
     }
@@ -103,6 +110,8 @@ impl<T, E: Debug> NullableResult<T, E> {
 }
 
 impl<T: Default, E> NullableResult<T, E> {
+    /// Returns the contained value if it's `Ok`, otherwise returns the default value
+    /// for that type.
     #[inline]
     pub fn unwrap_or_default(self) -> T {
         match self {
@@ -113,6 +122,7 @@ impl<T: Default, E> NullableResult<T, E> {
 }
 
 impl<T: Copy, E> NullableResult<&'_ T, E> {
+    /// Returns a `NullableResult` with the `Ok` part copied.
     #[inline]
     pub fn copied(self) -> NullableResult<T, E> {
         self.map(|&item| item)
@@ -120,6 +130,7 @@ impl<T: Copy, E> NullableResult<&'_ T, E> {
 }
 
 impl<T: Copy, E> NullableResult<&'_ mut T, E> {
+    /// Returns a `NullableResult` with the `Ok` part copied.
     #[inline]
     pub fn copied(self) -> NullableResult<T, E> {
         self.map(|&mut item| item)
@@ -127,6 +138,7 @@ impl<T: Copy, E> NullableResult<&'_ mut T, E> {
 }
 
 impl<T: Clone, E> NullableResult<&'_ T, E> {
+    /// Returns a `NullableResult` with the `Ok` part cloned.
     #[inline]
     pub fn cloned(self) -> NullableResult<T, E> {
         self.map(|item| item.clone())
@@ -134,6 +146,7 @@ impl<T: Clone, E> NullableResult<&'_ T, E> {
 }
 
 impl<T: Clone, E> NullableResult<&'_ mut T, E> {
+    /// Returns a `NullableResult` with the `Ok` part cloned.
     #[inline]
     pub fn cloned(self) -> NullableResult<T, E> {
         self.map(|item| item.clone())
@@ -141,6 +154,8 @@ impl<T: Clone, E> NullableResult<&'_ mut T, E> {
 }
 
 impl<T: Deref, E> NullableResult<T, E> {
+    /// Coerce the `Ok` variant of the original result with `Deref` and returns the
+    /// new `NullableResult`
     #[inline]
     pub fn as_deref(&self) -> NullableResult<&T::Target, &E> {
         match self {
@@ -152,25 +167,33 @@ impl<T: Deref, E> NullableResult<T, E> {
 }
 
 impl<T, E> NullableResult<T, E> {
+    /// Returns `true` if this result is an [`Ok`] value
     #[inline]
     #[must_use]
     pub fn is_ok(&self) -> bool {
         matches!(self, Ok(_))
     }
 
+    /// Returns `true` if this result is an [`Err`] value
     #[inline]
     #[must_use]
     pub fn is_err(&self) -> bool {
         matches!(self, Err(_))
     }
 
+    /// Returns `true` if this result is a [`None`] value
     #[inline]
     #[must_use]
     pub fn is_none(&self) -> bool {
         matches!(self, None)
     }
 
+    /// Returns the contained [`Ok`] value, consuming `self`.
+    ///
+    /// # Panics
+    /// Panics if the value is not [`Ok`] with the provided message.
     #[inline]
+    #[track_caller]
     pub fn expect(self, msg: &str) -> T {
         match self {
             Ok(item) => item,
@@ -261,6 +284,7 @@ impl<T, E> NullableResult<T, E> {
         }
     }
 
+    /// Returns a [`Result`] with an optional error.
     #[inline]
     pub fn result_optional_err(self) -> Result<T, Option<E>> {
         match self {
@@ -270,6 +294,8 @@ impl<T, E> NullableResult<T, E> {
         }
     }
 
+    /// Convert from a `NullableResult<T, E>` or `&NullableResult<T, E>` to a
+    /// `NullableResult<&T, &E>`.
     #[inline]
     pub fn as_ref(&self) -> NullableResult<&T, &E> {
         use NullableResult::*;
@@ -280,6 +306,8 @@ impl<T, E> NullableResult<T, E> {
         }
     }
 
+    /// Convert from a `mut NullableResult<T, E>` or `&mut NullableResult<T, E>` to a
+    /// `NullableResult<&mut T, &mut E>`.
     #[inline]
     pub fn as_mut(&mut self) -> NullableResult<&mut T, &mut E> {
         use NullableResult::*;
@@ -290,6 +318,7 @@ impl<T, E> NullableResult<T, E> {
         }
     }
 
+    /// If `self` is [`Ok`], returns `res`, keeps the err or none from `self` otherwise.
     #[inline]
     pub fn and<U>(self, res: NullableResult<U, E>) -> NullableResult<U, E> {
         match self {
@@ -299,6 +328,8 @@ impl<T, E> NullableResult<T, E> {
         }
     }
 
+    /// Calls `op` if the result is [`Ok`], otherwise returns the [`Err`] or [`None`]
+    /// from `self`.
     #[inline]
     pub fn and_then<U, F>(self, op: F) -> NullableResult<U, E>
     where
@@ -313,6 +344,8 @@ impl<T, E> NullableResult<T, E> {
 }
 
 impl<T, E> NullableResult<NullableResult<T, E>, E> {
+    /// Convert from `NullableResult<NullableResult<T, E>, E>` to
+    /// `NullableResult<T, E>`.
     #[inline]
     pub fn flatten(self) -> NullableResult<T, E> {
         match self {
@@ -414,6 +447,37 @@ where
     }
 }
 
+/// This macro [`extract`] that works like the `?` operator and can be used in
+/// functions that return a [`NullableResult`] as long as the error type is the same.
+/// It takes a [`NullableResult`], a [`Result`], or an [`Option`]. If the input
+/// contains an `Ok` or `Some` value, the value is extracted and returned,
+/// if it contains an `Err` or `None`, the function returns early with the `Err` or
+/// `None` wrapped in a new `NullableResult`.
+/// ```rust
+/// # use nullable_result::{NullableResult, extract};
+/// fn do_a_thing() -> NullableResult<usize, isize> {
+///     let res = some_other_func();
+///     let number = extract!(res); // <---- this will cause the function to return early
+///     NullableResult::Ok(number as usize + 5)
+/// }
+///
+/// // note that the two functions have different types for their Ok values
+/// fn some_other_func() -> NullableResult<i8, isize> {
+///     NullableResult::None
+/// }
+/// ```
+///
+/// If the input is an option, it requires a second parameter as a type annotation for
+/// converting to a ['NullableResult`]. Hopefully this won't be necessary in some
+/// future version.
+/// ```rust
+/// # use nullable_result::{NullableResult, extract};
+/// fn f() -> NullableResult<usize, isize> {
+///     let opt = Some(4_usize);
+///     let four = extract!(opt, isize);
+///     NullableResult::Ok(four)
+/// }
+/// ```
 #[macro_export]
 macro_rules! extract {
     ($nr:expr) => {
@@ -433,15 +497,22 @@ macro_rules! extract {
     }};
 }
 
+/// Adds additional methods to all iterators.
 pub trait GeneralIterExt: Iterator {
+    /// Applies the predicate to the elements of the iterator and returns the first
+    /// true result or the first error.
     fn try_find<E, P>(self, pred: P) -> NullableResult<Self::Item, E>
     where
         P: FnMut(&Self::Item) -> Result<bool, E>;
 
+    /// Applies the function to the elements of the iterator and returns the first
+    /// value that isn't [`None`]
     fn try_find_map<T, E, F>(self, f: F) -> NullableResult<T, E>
     where
         F: FnMut(Self::Item) -> NullableResult<T, E>;
 
+    /// Fold the elements of the iterator using the given initial value and operation.
+    /// Returns early if the operation does not return [`Ok`].
     fn maybe_try_fold<T, E, Op>(
         &mut self,
         init: T,
@@ -496,15 +567,18 @@ impl<I: Iterator> GeneralIterExt for I {
     }
 }
 
+/// Additional methods for iterators over [`NullableResult`]
 pub trait IterExt<T, E>: Iterator<Item = NullableResult<T, E>>
 where
     Self: Sized,
 {
+    /// Filter out all the null values. Returns an iterator over [`Result<T, E>`].
     #[inline]
     fn filter_nulls(self) -> FilterNulls<Self, T, E> {
         self.filter_map(Option::from)
     }
 
+    /// Returns the first value that is an [`Err`] or that the predicate accepts.
     #[inline]
     fn extract_and_find<P>(self, mut pred: P) -> NullableResult<T, E>
     where
@@ -520,6 +594,8 @@ where
         })
     }
 
+    /// Applies the function to each element until it finds one that the function
+    /// returns [`Ok`] or [`Err`] and returns that value.
     #[inline]
     fn extract_and_find_map<F, U>(self, mut f: F) -> NullableResult<U, E>
     where
@@ -528,6 +604,8 @@ where
         self.try_find_map(|item| f(extract!(item)))
     }
 
+    /// Returns an iterator that applies the predicate to each element and filters out
+    /// the values for which it returns false.
     #[inline]
     fn try_filter<P>(self, pred: P) -> TryFilter<Self, P, T, E>
     where
@@ -536,7 +614,7 @@ where
         TryFilter { inner: self, pred }
     }
 
-    #[inline]
+    /// Returns an iterator that both filters and maps.
     fn try_filter_map<F, U>(self, f: F) -> TryFilterMap<Self, F, T, U, E>
     where
         F: FnMut(T) -> Option<NullableResult<U, E>>,
@@ -550,6 +628,7 @@ impl<I, T, E> IterExt<T, E> for I where I: Iterator<Item = NullableResult<T, E>>
 type FilterNulls<I, T, E> =
     FilterMap<I, fn(NullableResult<T, E>) -> Option<Result<T, E>>>;
 
+/// See [IterExt::try_filter]
 pub struct TryFilter<I, P, T, E>
 where
     I: Iterator<Item = NullableResult<T, E>>,
@@ -585,6 +664,7 @@ where
 {
 }
 
+/// See [IterExt::try_filter_map]
 pub struct TryFilterMap<I, F, T, U, E>
 where
     I: Iterator<Item = NullableResult<T, E>>,
@@ -619,15 +699,21 @@ where
 {
 }
 
+/// Analogue of [TryFrom] that returns a [`NullableResult`]
 pub trait MaybeTryFrom<T>: Sized {
+    /// The type that is returned if conversion fails
     type Error;
 
+    /// Convert a `T` to [`NullableResult<Self, Self::Error>`]
     fn maybe_try_from(item: T) -> NullableResult<Self, Self::Error>;
 }
 
+/// Analogue of [TryInto] that returns a [`NullableResult`]
 pub trait MaybeTryInto<T>: Sized {
+    /// The type that is returned if conversion fails
     type Error;
 
+    /// Convert a `Self` to [`NullableResult<T, Self::Error>`]
     fn maybe_try_into(self) -> NullableResult<T, Self::Error>;
 }
 
