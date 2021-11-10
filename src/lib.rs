@@ -127,12 +127,14 @@ impl<T: Copy, E> NullableResult<&'_ mut T, E> {
 }
 
 impl<T: Clone, E> NullableResult<&'_ T, E> {
+    #[inline]
     pub fn cloned(self) -> NullableResult<T, E> {
         self.map(|item| item.clone())
     }
 }
 
 impl<T: Clone, E> NullableResult<&'_ mut T, E> {
+    #[inline]
     pub fn cloned(self) -> NullableResult<T, E> {
         self.map(|item| item.clone())
     }
@@ -383,6 +385,7 @@ impl<T, E> From<Option<T>> for NullableResult<T, E> {
 }
 
 impl<T, E> From<Result<T, Option<E>>> for NullableResult<T, E> {
+    #[inline]
     fn from(res: Result<T, Option<E>>) -> Self {
         match res {
             Result::Ok(item) => Ok(item),
@@ -560,6 +563,7 @@ where
 {
     type Item = NullableResult<T, E>;
 
+    #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         match self.inner.next() {
             Option::None => Option::None,
@@ -627,6 +631,7 @@ pub trait MaybeTryInto<T>: Sized {
 impl<T, U: TryFrom<T>> MaybeTryFrom<T> for U {
     type Error = U::Error;
 
+    #[inline]
     fn maybe_try_from(item: T) -> NullableResult<Self, Self::Error> {
         U::try_from(item).into()
     }
@@ -635,6 +640,7 @@ impl<T, U: TryFrom<T>> MaybeTryFrom<T> for U {
 impl<T, U: MaybeTryFrom<T>> MaybeTryInto<U> for T {
     type Error = U::Error;
 
+    #[inline]
     fn maybe_try_into(self) -> NullableResult<U, Self::Error> {
         U::maybe_try_from(self)
     }
