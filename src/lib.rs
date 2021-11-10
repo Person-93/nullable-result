@@ -153,16 +153,19 @@ impl<T: Deref, E> NullableResult<T, E> {
 
 impl<T, E> NullableResult<T, E> {
     #[inline]
+    #[must_use]
     pub fn is_ok(&self) -> bool {
         matches!(self, Ok(_))
     }
 
     #[inline]
+    #[must_use]
     pub fn is_err(&self) -> bool {
         matches!(self, Err(_))
     }
 
     #[inline]
+    #[must_use]
     pub fn is_none(&self) -> bool {
         matches!(self, None)
     }
