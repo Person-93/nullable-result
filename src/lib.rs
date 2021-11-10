@@ -150,6 +150,21 @@ impl<T: Deref, E> NullableResult<T, E> {
 
 impl<T, E> NullableResult<T, E> {
     #[inline]
+    pub fn is_ok(&self) -> bool {
+        matches!(self, Ok(_))
+    }
+
+    #[inline]
+    pub fn is_err(&self) -> bool {
+        matches!(self, Err(_))
+    }
+
+    #[inline]
+    pub fn is_none(&self) -> bool {
+        matches!(self, None)
+    }
+
+    #[inline]
     pub fn expect(self, msg: &str) -> T {
         match self {
             Ok(item) => item,
