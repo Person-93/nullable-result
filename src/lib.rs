@@ -65,6 +65,7 @@
 
 use self::NullableResult::*;
 use core::{
+    convert::TryFrom,
     fmt::Debug,
     iter::{FilterMap, FromIterator, FusedIterator},
     ops::Deref,
@@ -609,4 +610,32 @@ where
     I: FusedIterator<Item = NullableResult<T, E>>,
     F: FnMut(T) -> Option<NullableResult<U, E>>,
 {
+}
+
+pub trait MaybeTryFrom<T>: Sized {
+    type Error;
+
+    fn maybe_try_from(item: T) -> NullableResult<Self, Self::Error>;
+}
+
+pub trait MaybeTryInto<T>: Sized {
+    type Error;
+
+    fn maybe_try_into(self) -> NullableResult<T, Self::Error>;
+}
+
+impl<T, U: TryFrom<T>> MaybeTryFrom<T> for U {
+    type Error = U::Error;
+
+    fn maybe_try_from(item: T) -> NullableResult<Self, Self::Error> {
+        U::try_from(item).into()
+    }
+}
+
+impl<T, U: MaybeTryFrom<T>> MaybeTryInto<U> for T {
+    type Error = U::Error;
+
+    fn maybe_try_into(self) -> NullableResult<U, Self::Error> {
+        U::maybe_try_from(self)
+    }
 }
