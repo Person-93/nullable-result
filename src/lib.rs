@@ -434,6 +434,14 @@ pub trait GeneralIterExt: Iterator {
     fn try_find_map<T, E, F>(self, f: F) -> NullableResult<T, E>
     where
         F: FnMut(Self::Item) -> NullableResult<T, E>;
+
+    fn maybe_try_fold<T, E, Op>(
+        &mut self,
+        init: T,
+        op: Op,
+    ) -> NullableResult<T, E>
+    where
+        Op: FnMut(T, Self::Item) -> NullableResult<T, E>;
 }
 
 impl<I: Iterator> GeneralIterExt for I {
@@ -465,6 +473,19 @@ impl<I: Iterator> GeneralIterExt for I {
             };
         }
         None
+    }
+
+    #[inline]
+    fn maybe_try_fold<T, E, Op>(
+        &mut self,
+        init: T,
+        mut op: Op,
+    ) -> NullableResult<T, E>
+    where
+        Op: FnMut(T, Self::Item) -> NullableResult<T, E>,
+    {
+        self.try_fold(init, |prev, curr| op(prev, curr).result_optional_err())
+            .into()
     }
 }
 
