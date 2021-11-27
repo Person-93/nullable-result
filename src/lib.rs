@@ -7,6 +7,10 @@
 
 #![warn(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
+#![cfg_attr(feature = "try_trait", feature(try_trait_v2))]
+
+#[cfg(feature = "try_trait")]
+mod try_trait;
 
 use self::NullableResult::*;
 #[cfg(doc)]
