@@ -16,8 +16,8 @@ fn err() {
 
 #[test]
 fn none() {
-    let res = helper(NullableResult::None, 0);
-    assert!(matches!(res, NullableResult::None));
+    let res = helper(NullableResult::Null, 0);
+    assert!(matches!(res, NullableResult::Null));
 }
 
 fn helper(nr: NullableResult<i32, u32>, n: i32) -> NullableResult<(), u32> {

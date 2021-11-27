@@ -18,7 +18,7 @@ mod result_and_back {
     fn none() {
         let res = Ok(None);
         let nr: NullableResult<(), ()> = NullableResult::from(res);
-        assert!(matches!(nr, NullableResult::None));
+        assert!(matches!(nr, NullableResult::Null));
         let res = Result::from(nr);
         assert!(res.unwrap().is_none());
     }
@@ -49,7 +49,7 @@ mod option_and_back {
     fn none() {
         let opt = None;
         let nr: NullableResult<(), ()> = NullableResult::from(Ok(opt));
-        assert!(matches!(nr, NullableResult::None));
+        assert!(matches!(nr, NullableResult::Null));
         let opt: Option<Result<_, _>> = Option::from(nr);
         assert!(opt.is_none());
     }
