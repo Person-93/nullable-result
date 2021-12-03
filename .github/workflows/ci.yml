@@ -41,6 +41,14 @@ jobs:
           args: cargo-feature-matrix
 
       - name: Run Tests
+        if: matrix.rust != 'nightly'
+        uses: actions-rs/cargo@v1
+        with:
+          command: feature-matrix
+          args: --deny=__unstable test
+
+      - name: Run Tests
+        if: matrix.rust == 'nightly'
         uses: actions-rs/cargo@v1
         with:
           command: feature-matrix
