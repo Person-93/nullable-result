@@ -11,7 +11,7 @@ documentation = "https://docs.rs/nullable-result/"
 [features]
 default = ["std"]
 std = []
-try_trait = ["unstable"]
-unstable = []
+try_trait = ["__unstable"]
+__unstable = []
 
 [dependencies]
