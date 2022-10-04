@@ -1,55 +1,158 @@
 name: CI
-on: [ push, pull_request ]
+
+on:
+  push:
+    branches:
+    - master
+    paths:
+    - '**'
+    - "!/*.md"
+    - "!/docs/**"
+    - "!/LICENSE-*.txt"
+
+  pull_request:
+    paths:
+    - '**'
+    - "!/*.md"
+    - "!/docs/**"
+    - "!/LICENSE-*.txt"
+
+  workflow_dispatch:
+
 jobs:
+  ci:
+    name: CI
+    needs: [smoke, test, docs, rustfmt, clippy]
+    runs-on: ubuntu-latest
+    steps:
+    - name: Done
+      run: exit 0
+
   test:
-    runs-on: ${{ matrix.os }}
+    needs: smoke
     strategy:
+      fail-fast: false
       matrix:
-        os: [ ubuntu-latest, windows-latest, macos-latest ]
-        rust: [ stable, nightly ]
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        rust: [stable, beta, nightly]
+
+    runs-on: ${{ matrix.os }}
 
     steps:
-      - uses: actions/checkout@v2
+    - uses: actions/checkout@v2
 
-      - uses: actions-rs/toolchain@v1
-        id: toolchain
-        with:
-          profile: minimal
-          toolchain: ${{ matrix.rust }}
-          override: true
-          components: rustfmt, clippy
+    - uses: actions-rs/toolchain@v1
+      id: toolchain
+      with:
+        profile: minimal
+        toolchain: ${{ matrix.rust }}
+        override: true
 
-      - name: clippy
-        if: matrix.os == 'ubuntu-latest' && matrix.rust == 'stable'
-        uses: actions-rs/cargo@v1
-        with:
-          command: clippy
-          args: -- -D warnings
+    - uses: Swatinem/rust-cache@v1.3.0
 
-      - name: cache cargo binaries
-        id: cache
-        uses: actions/cache@v2
-        with:
-          path: "/usr/share/rust/.cargo"
-          key: ${{ runner.os }}-cargo-bins-${{ env.GITHUB_SHA }}
-          restore-keys: ${{ runner.os }}-cargo-bins-
+    - uses: actions-rs/cargo@v1
+      with:
+        command: install
+        args: cargo-feature-matrix
 
-      - name: install tools
-        uses: actions-rs/cargo@v1
-        with:
-          command: install
-          args: cargo-feature-matrix
+    - uses: actions-rs/cargo@v1
+      with:
+        command: feature-matrix
+        args: ${{ matrix.rust != 'nightly' && '--deny __unstable' || '' }} test
 
-      - name: Run Tests
-        if: matrix.rust != 'nightly'
-        uses: actions-rs/cargo@v1
-        with:
-          command: feature-matrix
-          args: --deny=__unstable test
+  docs:
+    name: Docs
+    needs: smoke
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        rust: [stable, beta, nightly]
 
-      - name: Run Tests
-        if: matrix.rust == 'nightly'
-        uses: actions-rs/cargo@v1
-        with:
-          command: feature-matrix
-          args: test
+    steps:
+    - uses: actions/checkout@v2
+
+    - uses: actions-rs/toolchain@v1
+      with:
+        toolchain: ${{ matrix.rust }}
+        profile: minimal
+        override: true
+
+    - uses: Swatinem/rust-cache@v1.3.0
+
+    - name: Check Documentation
+      env:
+        RUSTDOCFLAGS: -D warnings
+      uses: actions-rs/cargo@v1
+      with:
+        command: doc
+        args: --no-deps --document-private-items --workspace
+
+  rustfmt:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+
+    - uses: actions-rs/toolchain@v1
+      with:
+        toolchain: nightly
+        profile: minimal
+        override: true
+        components: rustfmt
+
+    - uses: Swatinem/rust-cache@v1.3.0
+
+    - name: Check Formatting
+      uses: actions-rs/cargo@v1
+      with:
+        command: fmt
+        args: --all -- --check
+
+  clippy:
+    needs: smoke
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v1
+
+    - uses: actions-rs/toolchain@v1
+      with:
+        toolchain: nightly
+        components: clippy
+        override: true
+
+    - uses: actions-rs/clippy-check@v1
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        args: --workspace --all-features --all-targets -- -D warnings
+
+  smoke:
+    name: Quick Check
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+
+    - uses: actions-rs/toolchain@v1
+      with:
+        toolchain: nightly
+        profile: minimal
+        override: true
+
+    - uses: Swatinem/rust-cache@v1.3.0
+
+    - name: Default Features
+      uses: actions-rs/cargo@v1
+      with:
+        command: check
+        args: --workspace --all-targets
+
+    - name: All Features
+      uses: actions-rs/cargo@v1
+      with:
+        command: check
+        args: --workspace --all-targets --all-features
+
+    - name: No Default Features
+      uses: actions-rs/cargo@v1
+      with:
+        command: check
+        args: --workspace --all-targets --no-default-features
