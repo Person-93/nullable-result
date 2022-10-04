@@ -347,6 +347,30 @@ impl<T, E> NullableResult<T, E> {
             Null => Null,
         }
     }
+
+    /// Returns the `T` item from `self` if [`Ok`], otherwise returns the
+    /// [`Err`] or [`Null`] from `res`.
+    #[inline]
+    pub fn or<F>(self, res: NullableResult<T, F>) -> NullableResult<T, F> {
+        match self {
+            Ok(item) => Ok(item),
+            Err(_) => res,
+            Null => Null,
+        }
+    }
+
+    /// Returns contained value if [`Ok`], otherwise calls `op`.
+    #[inline]
+    pub fn or_else<F, O: FnOnce(Option<E>) -> NullableResult<T, F>>(
+        self,
+        op: O,
+    ) -> NullableResult<T, F> {
+        match self {
+            Ok(item) => Ok(item),
+            Err(err) => op(Some(err)),
+            Null => op(None),
+        }
+    }
 }
 
 impl<T, E> NullableResult<NullableResult<T, E>, E> {
